@@ -1,0 +1,9 @@
+vendor/
+build/
+logs/
+venv/
+__pycache__/
+*.o
+*.so
+*.dis
+*.zip
