@@ -20,6 +20,7 @@ sets, AK exported names, fuzzy string similarity, aligned callee sequences (`too
 | Function | AX | AK |
 |---|---|---|
 | AirPlayReceiverSessionSetup | 0x477fd4 | 0x6a60c |
+| _AddResponseStream (static) | 0x472ba4 | 0x652d4 |
 | AirPlayReceiverSessionSendCommand | 0x474fd0 | 0x673e0 |
 | GetStreamSecurityKeys | 0x474254 | 0x654c0 |
 | AirPlay_DeriveAESKeySHA512ForScreen | 0x481af0 | 0x73e84 |

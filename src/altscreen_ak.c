@@ -46,6 +46,9 @@ static long sys3(long nr, long a, long b, long c) {
 #define O_WRONLY 01
 #define O_CREAT 0100
 #define O_APPEND 02000
+#define O_TRUNC 01000
+#define NR_lseek 19
+#define SEEK_END 2
 #define O_NONBLOCK 04000
 #define F_GETFL 3
 #define F_SETFL 4
@@ -99,7 +102,10 @@ static const fn_dict_get_typed cf_dict_get_typed = (fn_dict_get_typed)0x000945c8
 static const fn_dict_get_i64 cf_dict_get_int64 = (fn_dict_get_i64)0x000943ccu;
 static const fn_dict_set_i64 cf_dict_set_int64 = (fn_dict_set_i64)0x00096b00u;
 static const fn_dict_set_value cf_dict_set_value = (fn_dict_set_value)0x000836dcu;
-static const fn_dict_get_value cf_dict_get_value = (fn_dict_get_value)0x000836bcu;
+typedef int (*fn_add_resp)(void *, void *);
+#define VA_ADD_RESPONSE_STREAM 0x000652d4u  /* _AddResponseStream(resp, entry): GetTyped(resp,"streams") or create+set, then append */
+#define W_ADD_RESPONSE_STREAM  0xe92d43f0u  /* push {r4-r9, lr} */
+static const fn_add_resp add_response_stream = (fn_add_resp)VA_ADD_RESPONSE_STREAM;
 static const fn_dict_mk cf_dict_create_mutable = (fn_dict_mk)0x00083568u;
 static const fn_dict_mkcopy cf_dict_create_mutable_copy = (fn_dict_mkcopy)0x00083678u;
 static const fn_arr_mk cf_array_create_mutable = (fn_arr_mk)0x00082e10u;
@@ -128,10 +134,38 @@ static size_t slen(const char *s) { size_t n = 0; while (s[n]) n++; return n; }
 static const char LOGDIR[] = "/usr/data/log";
 static const char LOGF[] = "/usr/data/log/altscreen.log";
 
-static void dbg(const char *msg, long n) {
+/* altscreen.log lives in persistent flash: truncate at boot when over LOG_MAX_FILE,
+   and stop writing after LOG_MAX_BOOT bytes per boot (one marker line). */
+#define LOG_MAX_FILE (64 * 1024)
+#define LOG_MAX_BOOT (16 * 1024)
+static long g_log_bytes;
+static int g_log_capped;
+static int log_open(void) {
+  if (g_log_capped) return -1;
+  int fd = open(LOGF, O_WRONLY | O_CREAT | O_APPEND, 0644);
+  if (fd < 0) return -1;
+  if (g_log_bytes > LOG_MAX_BOOT) {
+    static const char m[] = "log cap reached for this boot\n";
+    write(fd, m, sizeof m - 1);
+    g_log_capped = 1;
+    close(fd);
+    return -1;
+  }
+  return fd;
+}
+static void log_w(int fd, const void *p, size_t n) { write(fd, p, n); g_log_bytes += (long)n; }
+static void log_trim_at_boot(void) {
   int fd = open(LOGF, O_WRONLY | O_CREAT | O_APPEND, 0644);
   if (fd < 0) return;
-  write(fd, msg, slen(msg));
+  long sz = sys3(NR_lseek, fd, 0, SEEK_END);
+  close(fd);
+  if (sz > LOG_MAX_FILE) { fd = open(LOGF, O_WRONLY | O_CREAT | O_TRUNC, 0644); if (fd >= 0) close(fd); }
+}
+
+static void dbg(const char *msg, long n) {
+  int fd = log_open();
+  if (fd < 0) return;
+  log_w(fd, msg, slen(msg));
   if (n != -1) {
     /* decimal without division (no __aeabi_uidiv dependency on ARMv5) */
     static const unsigned long p10[] = {1000000000ul, 100000000ul, 10000000ul, 1000000ul, 100000ul,
@@ -145,9 +179,9 @@ static void dbg(const char *msg, long n) {
       while (m >= p10[i]) { m -= p10[i]; dgt++; }
       if (dgt != '0' || started || i == 9) { b[l++] = dgt; started = 1; }
     }
-    write(fd, b, l);
+    log_w(fd, b, l);
   }
-  write(fd, "\n", 1);
+  log_w(fd, "\n", 1);
   close(fd);
 }
 
@@ -156,9 +190,9 @@ static void dbg_hex(const char *msg, u32 v) {
   char b[12]; b[0] = ' '; b[1] = '0'; b[2] = 'x';
   for (int i = 0; i < 8; i++) b[3 + i] = hx[(v >> (28 - 4 * i)) & 15];
   b[11] = 0;
-  int fd = open(LOGF, O_WRONLY | O_CREAT | O_APPEND, 0644);
+  int fd = log_open();
   if (fd < 0) return;
-  write(fd, msg, slen(msg)); write(fd, b, 11); write(fd, "\n", 1);
+  log_w(fd, msg, slen(msg)); log_w(fd, b, 11); log_w(fd, "\n", 1);
   close(fd);
 }
 
@@ -294,12 +328,12 @@ static int fmt_u64(char *out, int cap, const char *prefix, unsigned long long v)
 
 static void dbg_bytes(const char *msg, const u8 *p, int n) {
   static const char hx[] = "0123456789abcdef";
-  int fd = open(LOGF, O_WRONLY | O_CREAT | O_APPEND, 0644);
+  int fd = log_open();
   if (fd < 0) return;
-  write(fd, msg, slen(msg));
+  log_w(fd, msg, slen(msg));
   if (n > 48) n = 48;
-  for (int i = 0; i < n; i++) { char c[3] = {' ', hx[p[i] >> 4], hx[p[i] & 15]}; write(fd, c, 3); }
-  write(fd, "\n", 1);
+  for (int i = 0; i < n; i++) { char c[3] = {' ', hx[p[i] >> 4], hx[p[i] & 15]}; log_w(fd, c, 3); }
+  log_w(fd, "\n", 1);
   close(fd);
 }
 
@@ -422,6 +456,7 @@ static void *sink_thread(void *arg) {
   u32 bodycap = 0, cfg_len = 0;
   long frames = 0, pushed = 0;
   int cfg_sent = 0, got_idr = 0, wait_idr = 0, send_failed = 0, dumped = 0, cfg_dumped = 0;
+  long cfg_count = 0, idr_log = 0;
   for (;;) {
     if (readn(c, hdr, 128) != 0) break;
     u32 bodylen = *(u32 *)hdr;
@@ -459,7 +494,10 @@ static void *sink_thread(void *arg) {
           if (send_to_car(cc, 1, cfg_hdr, cfg_body, cfg_len) == 0) dbg("alt config sent late", (long)cfg_len);
           cfg_sent = 1; got_idr = 0; wait_idr = 0;
         }
-        if (!got_idr && has_idr(body, bodylen)) { got_idr = 1; dbg("alt idr after frames", wait_idr); }
+        if (!got_idr && has_idr(body, bodylen)) {
+          got_idr = 1;
+          if (wait_idr > 0 || idr_log < 3) { dbg("alt idr after frames", wait_idr); idr_log++; }
+        }
         if (!got_idr) {
           if ((wait_idr++ & 127) == 0 && session) { int kr = send_phone_cmd(session, "forceKeyFrame", 0); dbg("alt force keyframe err", kr); }
           continue;
@@ -473,14 +511,21 @@ static void *sink_thread(void *arg) {
       cfg_body = (u8 *)malloc(bodylen);
       if (cfg_body) { mcpy(cfg_body, body, bodylen); mcpy(cfg_hdr, hdr, 128); cfg_len = bodylen; cfg_sent = 0; }
       if (cfg_body && cc) {
-        if (send_to_car(cc, 1, cfg_hdr, cfg_body, cfg_len) == 0) { pushed++; dbg("alt config sent", (long)cfg_len); }
+        if (send_to_car(cc, 1, cfg_hdr, cfg_body, cfg_len) == 0) {
+          pushed++;
+          if (++cfg_count <= 3) dbg("alt config sent", (long)cfg_len);
+        }
         cfg_sent = 1; got_idr = 0; wait_idr = 0;
       }
     }
-    if ((frames & 511) == 0) dbg("alt frames pushed", pushed);
+    if ((frames <= 2048 && (frames & 511) == 0) || (frames & 65535) == 0) {
+      dbg("alt frames pushed", pushed);
+      dbg("alt configs so far", cfg_count);
+    }
   }
   dbg("alt stream end, frames", frames);
   dbg("alt stream end, pushed", pushed);
+  dbg("alt stream end, configs", cfg_count);
   /* allow a fresh cluster SETUP on the next session */
   struct car_ctx *old = g_car;
   g_car = 0;
@@ -665,14 +710,13 @@ int shim_session_setup(void *session, void *req, void **resp_out) {
   if (rc != 0 || !had_alt || !resp_out || !*resp_out) return rc;
   int port = open_alt_sink(session);
   if (port <= 0) { dbg("alt sink fail", -1); return rc; }
-  void *streams = cf_dict_get_value(*resp_out, K_STREAMS);
-  if (!streams) { dbg("alt no streams array in response", -1); return rc; }
   void *entry = cf_dict_create_mutable(0, 0, CB_DICT_KEY, CB_DICT_VAL);
-  if (!entry) return rc;
+  if (!entry) { dbg("alt entry alloc fail", -1); return rc; }
   cf_dict_set_int64(entry, K_TYPE, ALT_SCREEN_TYPE);
   cf_dict_set_int64(entry, K_DATAPORT, port);
-  cf_array_append(streams, entry);
+  int arc = add_response_stream(*resp_out, entry);
   cf_release(entry);
+  if (arc != 0) { dbg("alt add response stream fail", arc); return rc; }
   dbg("alt dataPort", port);
   if (!g_cluster_started) {
     g_cluster_started = 1;
@@ -698,12 +742,14 @@ static void install(void) {
   if (g_done) return;
   g_done = 1;
   mkdir(LOGDIR, 0755);
+  log_trim_at_boot();
   dbg("altscreen-ak shim loaded", -1);
   u32 lit_new = VA_ALTSCREEN_CFOBJ - (VA_P1_ADD_PC + 8) - 893;
   if (rd(VA_SETUP_CALL) != W_SETUP_CALL_OLD || rd(VA_SETUP_CALL) != bl_to(VA_SETUP_CALL, VA_SETUP) ||
       rd(VA_P1_GATE_ALL) != W_GATE_ALL_OLD || rd(VA_P1_GATE_VIEW) != W_GATE_VIEW_OLD ||
       rd(VA_P1_GATE_SLOT3) != W_GATE_SLOT3_OLD || rd(VA_P1_LIT_SLOT3) != W_LIT_SLOT3_OLD ||
-      rd(VA_NOSTRIP) != W_NOSTRIP_OLD || rd(VA_CAVE) != 0 || rd(VA_CAVE + 4) != 0) {
+      rd(VA_NOSTRIP) != W_NOSTRIP_OLD || rd(VA_CAVE) != 0 || rd(VA_CAVE + 4) != 0 ||
+      rd(VA_ADD_RESPONSE_STREAM) != W_ADD_RESPONSE_STREAM) {
     dbg_hex("altscreen-ak MISMATCH, nothing patched; setup_call", rd(VA_SETUP_CALL));
     return;
   }

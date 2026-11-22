@@ -12,7 +12,7 @@ Target car: VW Passat B8 with MHI2 (HARMAN, AirPlay 210.81) and the
 [mhi2-aid-carplay](https://github.com/chrzanowy/mhi2-aid-carplay) bridge, which shows the CarPlay cluster stream on
 the AID. Any car that shows a CarPlay cluster map with a cable should behave the same.
 
-> **Status:** P1–P4 installed and loading on the dongle; **not yet confirmed in a car.**
+> **Status:** confirmed in a VW Passat B8 / MHI2: CarPlay starts with low latency and the CarPlay map is shown on the AID.
 
 ## Is it my dongle?
 
@@ -33,7 +33,8 @@ Its constructor checks the original instruction words and only then patches, at 
 - **P1** `enabledFeatures` sent to the iPhone always contains `viewAreas` + `altScreen`;
   **nostrip**: the phone-facing `/info` keeps every display the car advertises (incl. the cluster).
 - **P2** `AirPlayReceiverSessionSetup` is redirected through the shim: a type-111 stream from the
-  phone is taken out of the request, answered with our own socket, and drained there.
+  phone is taken out of the request and answered with our own socket (added to the response with the
+  vendor's `_AddResponseStream`).
 - **P3** a type-111 RTSP `SETUP` is sent to the car over the dongle's AirPlay client
   (cluster uuid `b7e6c5a0-2222-4000-8000-000000000002`), then a TCP stream is opened.
 - **P4** frames from the phone are decrypted (ChaCha20-Poly1305 or AES-CTR) and sent to the car
@@ -70,7 +71,8 @@ system. If the application fails to start, the dongle falls back to its factory 
 
 ## Logs
 
-`/usr/data/log/altscreen.log` (persistent). Download all dongle logs as a zip, locally:
+`/usr/data/log/altscreen.log` (persistent flash, so it is kept short: at most 16 KB per boot,
+cleared at boot when over 64 KB; repeated per-frame events are only counted). Download all dongle logs as a zip, locally:
 
 ```sh
 curl -o logs.zip "http://192.168.200.1/cgi-bin/minizip.cgi?logID=mylogs&"
@@ -78,7 +80,7 @@ curl -o logs.zip "http://192.168.200.1/cgi-bin/minizip.cgi?logID=mylogs&"
 
 Expected sequence in a car session: `req stream type 111` → `alt connected` → `alt chacha keys rc 0`
 → `cluster SETUP sent` → `cluster car dataPort N` → `cluster ctx ready` → `alt config sent`
-→ `alt idr after frames` → `alt frames pushed …`.
+→ `alt idr after frames` → `alt frames pushed …` / `alt configs so far …`.
 
 ## Notes
 
