@@ -1,4 +1,5 @@
 #!/bin/sh
+# SPDX-License-Identifier: GPL-3.0-only
 # Build build/ak_202610081659_hook from the vendor package ak_202610081659 and src/altscreen_ak.c.
 # Needs: zig (C compiler + ld.lld), python3. The vendor package is fetched with tools/fetch_vendor.py.
 set -eu

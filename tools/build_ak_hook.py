@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: GPL-3.0-only
 """Build ak_202610081659_hook.tar for the SmartBox AK3918AN.
 Static changes to sdDongle (everything else is done at runtime by the shim's constructor):
   1. one DT_NULL slot -> DT_NEEDED "/usr/data/lib/libSdH.so" (absolute: no library search path involved;

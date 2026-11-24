@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: GPL-3.0-only
 """Resolve PIC data references in an LLVM-objdump ARM disassembly.
 Patterns: ldr rD,[pc,#imm] ... add rD,pc,rD  (pc-relative)
           ldr rD,[pc,#imm] ... add rD,rG,rD  (GOT-relative, GOT base given)

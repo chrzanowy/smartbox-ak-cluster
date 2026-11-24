@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: GPL-3.0-only
 """Minimal ELF32 LE helper: sections, string address lookup, literal-pool xrefs.
 usage: elfx.py <elf> sections | str <substring>... | xref <hexaddr>...
 """

@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: GPL-3.0-only
 """Match functions between the AX (MIPS) and AK (ARM) sdDongle builds of the same source.
 Anchors: identical sets of referenced strings. Propagation: aligned callee sequences of matched pairs.
 usage: fnmatch.py <ax-afl.json> <ax-elf> <ak-afl.json> <ak-elf> <out.json> [ax-hex ...]  (query: print AK match for AX addrs)

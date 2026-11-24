@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: GPL-3.0-only
 """Upload a suding vendor firmware tar to a SmartBox dongle (AK3918AN) via its web page protocol.
 
 Stages (explicit, one per run):

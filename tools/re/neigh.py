@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: GPL-3.0-only
 """For unmatched AX functions: list AX and AK functions between the nearest matched anchors.
 If both lists have equal length, propose the index-aligned AK address.
 usage: neigh.py <ax-afl.json> <ak-afl.json> <match.json> <ax-hex>...

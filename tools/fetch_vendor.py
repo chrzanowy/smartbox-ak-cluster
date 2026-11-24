@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: GPL-3.0-only
 """Download the vendor (stock) application package for the SmartBox AK3918AN from the vendor's
 update server - the same request the dongle's own web page makes. Nothing is sent to the dongle.
 

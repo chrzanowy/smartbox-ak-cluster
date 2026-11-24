@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: GPL-3.0-only
 """Emulate libSdH.so constructor against the real sdDongle image (unicorn, ARM).
 Checks: which words get written, that writes only hit pages made RWX by mprotect, and that the
 redirected Setup call lands in shim_session_setup.

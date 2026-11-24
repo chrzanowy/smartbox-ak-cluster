@@ -92,4 +92,5 @@ Expected sequence in a car session: `req stream type 111` â†’ `alt connected` â†
 
 ## Licence
 
-MIT, see `LICENSE` (includes OMKE's notice).
+GPL-3.0, see `LICENSE`. The shim design is derived from OMKE's project, which is MIT-licensed;
+its notice is kept in `LICENSES/MIT-OMKE.txt`.

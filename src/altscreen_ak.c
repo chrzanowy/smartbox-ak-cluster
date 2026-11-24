@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: GPL-3.0-only */
 /*
  * libSdH.so for the suding SmartBox AK3918AN (ARM926EJ-S, uClibc), firmware ak_202610081659.
  * P1: the iPhone requests the instrument-cluster stream (type 111); P2: the dongle accepts it;
